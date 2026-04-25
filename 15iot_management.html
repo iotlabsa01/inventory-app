@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IoTLab 관리페이지 v7</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#1e56a0;--primary-dark:#163d7d;--primary-light:#d6e4f7;
+  --success:#2e7d32;--success-light:#e8f5e9;
+  --warning:#e65100;--warning-light:#fff3e0;
+  --danger:#c62828;--danger-light:#ffebee;
+  --yellow:#f9a825;--yellow-light:#fffde7;
+  --gray:#f4f6fb;--border:#e0e0e0;--text:#222;--text-sub:#666;
+  --sidebar:220px;
+}
+body{font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:14px;color:var(--text);background:#fff}
+#login-page{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--gray)}
+.login-box{background:#fff;padding:56px 48px;border-radius:14px;box-shadow:0 6px 32px rgba(0,0,0,.12);width:380px;text-align:center}
+.login-box p{color:var(--text-sub);font-size:13px;margin-bottom:32px}
+.login-box label{display:block;text-align:left;font-size:12px;font-weight:600;margin-bottom:5px;margin-top:16px;color:var(--text-sub)}
+.login-box input{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:11px 14px;font-size:14px;outline:none}
+.login-box input:focus{border-color:var(--primary)}
+.btn-login{width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;margin-top:22px}
+.btn-login:hover{background:var(--primary-dark)}
+.btn-login:disabled{background:#aaa;cursor:not-allowed}
+.login-err{color:var(--danger);font-size:12px;margin-top:10px;display:none}
+#loading{display:none;position:fixed;inset:0;background:rgba(255,255,255,.75);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#loading.on{display:flex}
+.spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{font-size:13px;color:var(--text-sub)}
+#app{display:none;height:100vh;overflow:hidden}
+.sidebar{width:var(--sidebar);background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;height:100vh;position:fixed;left:0;top:0;z-index:100}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.sidebar-logo .ico{font-size:26px}
+.sidebar-logo .name{font-size:15px;font-weight:700;color:var(--primary)}
+.sidebar-logo .sub{font-size:11px;color:var(--text-sub)}
+nav{flex:1;overflow-y:auto;padding:10px 0}
+.nav-item{display:flex;align-items:center;gap:10px;padding:11px 18px;cursor:pointer;color:var(--text-sub);font-size:13px;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:var(--gray);color:var(--primary)}
+.nav-item.active{background:var(--primary-light);color:var(--primary);border-left-color:var(--primary);font-weight:600}
+.nav-item .ico{font-size:16px;width:22px;text-align:center}
+.nav-sub{padding:4px 0 6px 42px}
+.nav-sub-item{display:block;padding:7px 10px;cursor:pointer;color:var(--text-sub);font-size:13px;border-radius:6px;transition:all .15s}
+.nav-sub-item:hover{background:var(--gray);color:var(--primary)}
+.nav-sub-item.active{color:var(--primary);font-weight:600;background:var(--primary-light)}
+.sidebar-footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.user-dot{width:9px;height:9px;border-radius:50%;background:#4caf50;display:inline-block;margin-right:6px}
+.btn-logout{font-size:12px;color:var(--text-sub);cursor:pointer;background:none;border:none}
+.btn-logout:hover{color:var(--danger)}
+.divider{height:1px;background:var(--border);margin:5px 0}
+.main{margin-left:var(--sidebar);height:100vh;overflow-y:auto;background:var(--gray)}
+.page{display:none;padding:36px 48px;min-height:100vh;max-width:1600px}
+.page.active{display:block}
+.page-title{font-size:22px;font-weight:700;margin-bottom:24px}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.page-header h1{font-size:22px;font-weight:700}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:10px;padding:20px 22px;border:1px solid var(--border)}
+.stat-card .label{font-size:12px;color:var(--text-sub);margin-bottom:8px;font-weight:500}
+.stat-card .val{font-size:30px;font-weight:700}
+.stat-card .sub{font-size:12px;color:var(--text-sub);margin-top:4px}
+.stat-card.warn{background:var(--warning-light);border-color:#ffcc80}.stat-card.warn .val{color:var(--warning)}
+.stat-card.danger{background:var(--danger-light);border-color:#ef9a9a}.stat-card.danger .val{color:var(--danger)}
+.stat-card.ok{background:var(--success-light);border-color:#a5d6a7}.stat-card.ok .val{color:var(--success)}
+.stat-card.yellow{background:var(--yellow-light);border-color:#ffe082}.stat-card.yellow .val{color:var(--yellow)}
+.alert-banner{background:#fff3cd;border:1px solid #ffc107;border-radius:10px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;gap:12px;font-size:13px}
+.alert-banner .dot{width:9px;height:9px;border-radius:50%;background:var(--danger);flex-shrink:0}
+.widget-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.widget{background:#fff;border-radius:10px;border:1px solid var(--border);padding:20px 22px}
+.widget h3{font-size:13px;font-weight:600;color:var(--text-sub);margin-bottom:14px}
+.widget-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+.widget-item:last-child{border-bottom:none}
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+select.sel{border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;background:#fff;outline:none;cursor:pointer}
+input.search{border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;outline:none;width:180px}
+input.search:focus{border-color:var(--primary)}
+.table-wrap{background:#fff;border-radius:10px;border:1px solid var(--border);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8f9fa;padding:11px 12px;text-align:left;font-weight:600;color:var(--text-sub);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafbff}
+.badge{font-size:11px;padding:3px 9px;border-radius:10px;font-weight:600;white-space:nowrap}
+.tag-danger{background:var(--danger-light);color:var(--danger)}
+.tag-warn{background:var(--warning-light);color:var(--warning)}
+.tag-ok{background:var(--success-light);color:var(--success)}
+.tag-blue{background:var(--primary-light);color:var(--primary)}
+.tag-gray{background:#f0f0f0;color:#555}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-dark)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-outline{background:#fff;color:var(--primary);border:1px solid var(--primary)}.btn-outline:hover{background:var(--primary-light)}
+.btn-gray{background:#eee;color:#555}.btn-gray:hover{background:#ddd}
+.icon-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:5px;opacity:.7;transition:all .15s}.icon-btn:hover{opacity:1;background:#f0f0f0}
+.form-section{background:#fff;border-radius:10px;border:1px solid var(--border);padding:24px 28px;margin-bottom:18px}
+.form-section h3{font-size:14px;font-weight:700;color:var(--text-sub);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.form-row{display:grid;gap:16px;margin-bottom:16px}
+.form-row.col2{grid-template-columns:1fr 1fr}
+.form-row.col3{grid-template-columns:1fr 1fr 1fr}
+.form-row.col4{grid-template-columns:1fr 1fr 1fr 1fr}
+.form-group label{display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-sub)}
+.form-group input,.form-group select,.form-group textarea{width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px;outline:none;background:#fff;transition:border .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--primary)}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-group input[readonly]{background:#f8f9fa;color:var(--text-sub)}
+.form-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}
+.qty-ctrl{display:flex;align-items:center;gap:5px}
+.qty-ctrl input{width:54px;text-align:center;border:1px solid var(--border);border-radius:5px;padding:5px;font-size:13px}
+.qty-btn{width:26px;height:26px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.qty-btn:hover{background:var(--primary-light);border-color:var(--primary)}
+.stock-ok{color:var(--success);font-weight:600}
+.stock-warn{color:var(--yellow);font-weight:600}
+.stock-danger{color:var(--danger);font-weight:600}
+.log-in{color:var(--success);font-weight:600}
+.log-out{color:var(--danger);font-weight:600}
+.inv-tabs,.site-detail-tabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border)}
+.inv-tab,.site-tab{padding:10px 22px;font-size:14px;font-weight:600;cursor:pointer;color:var(--text-sub);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.inv-tab.active,.site-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.site-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.site-card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:20px;cursor:pointer;transition:all .15s}
+.site-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);border-color:var(--primary)}
+.site-card.urgent{border-color:#ef9a9a}
+.site-card.warn-card{border-color:#ffcc80}
+.site-card .site-name{font-size:15px;font-weight:700;margin-bottom:5px}
+.site-card .site-client{font-size:13px;color:var(--text-sub);margin-bottom:10px}
+.dday-red{background:var(--danger-light);color:var(--danger)}
+.dday-yellow{background:var(--yellow-light);color:var(--yellow)}
+.dday-ok{background:var(--success-light);color:var(--success)}
+.wbs-section{background:#fff;border:1px solid var(--border);border-radius:10px;margin-bottom:14px;overflow:hidden}
+.wbs-section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:#f8f9fa;border-bottom:1px solid var(--border)}
+.wbs-section-header h4{font-size:14px;font-weight:700;min-width:70px}
+.wbs-progress{height:8px;background:#e0e0e0;border-radius:4px;flex:1;margin:0 16px}
+.wbs-progress-bar{height:100%;border-radius:4px;background:var(--primary);transition:width .3s}
+.wbs-item{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #f5f5f5}
+.wbs-item:last-child{border-bottom:none}
+.wbs-item input[type=checkbox]{width:16px;height:16px;cursor:pointer;accent-color:var(--primary);flex-shrink:0}
+.wbs-item label{flex:1;font-size:13px;cursor:pointer}
+.wbs-item label.checked{text-decoration:line-through;color:var(--text-sub)}
+.wbs-item .phase{font-size:11px;padding:2px 8px;border-radius:8px;white-space:nowrap}
+.phase-pre{background:#e3f2fd;color:#1565c0}
+.phase-doing{background:#e8f5e9;color:#2e7d32}
+.phase-hand{background:#f3e5f5;color:#6a1b9a}
+.wbs-install-table{width:100%;border-collapse:collapse;font-size:13px}
+.wbs-install-table th{background:#f0f4ff;padding:10px 14px;text-align:left;font-weight:600;color:var(--primary);border-bottom:1px solid var(--border);font-size:12px}
+.wbs-install-table td{padding:9px 14px;border-bottom:1px solid #f5f5f5;vertical-align:middle}
+.wbs-install-table tr:last-child td{border-bottom:none}
+.wbs-install-table tr:hover td{background:#fafbff}
+.wbs-install-table input[type=text],.wbs-install-table select{border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:12px;width:100%;background:#fff;outline:none}
+.install-done td{background:#f1f8f1 !important}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.cal-nav{display:flex;align-items:center;gap:16px}
+.cal-nav button{background:none;border:1px solid var(--border);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:15px}
+.cal-nav button:hover{background:var(--gray)}
+.cal-title{font-size:18px;font-weight:700}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.cal-day-name{background:#f8f9fa;padding:10px;text-align:center;font-size:12px;font-weight:600;color:var(--text-sub)}
+.cal-cell{background:#fff;min-height:90px;padding:8px;cursor:pointer;transition:background .1s}
+.cal-cell:hover{background:#f0f4ff}
+.cal-cell.today{background:#e8f0fe}
+.cal-num{font-size:13px;font-weight:600;margin-bottom:5px}
+.cal-num.sunday{color:var(--danger)}
+.cal-num.saturday{color:var(--primary)}
+.cal-event{font-size:11px;background:var(--primary-light);color:var(--primary);border-radius:4px;padding:2px 6px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px;min-width:400px;max-width:660px;width:92%;max-height:88vh;overflow-y:auto;position:relative}
+.modal h3{font-size:17px;font-weight:700;margin-bottom:18px}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-sub)}
+.checkbox-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:6px}
+.checkbox-item{display:flex;align-items:center;gap:7px;font-size:13px}
+.checkbox-item input{accent-color:var(--primary)}
+.pill{font-size:11px;padding:2px 8px;border-radius:8px;font-weight:600}
+.empty{text-align:center;padding:56px;color:var(--text-sub)}
+.empty .ico{font-size:44px;display:block;margin-bottom:10px}
+
+/* ===== 모바일 ===== */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s;z-index:200}
+  .sidebar.open{transform:translateX(0)}
+  .mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:199}
+  .mob-overlay.on{display:block}
+  .main{margin-left:0!important}
+  .page{padding:16px 14px 80px!important}
+  /* 상단 햄버거 */
+  .mob-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+  .mob-header .title{font-size:15px;font-weight:700;color:var(--primary)}
+  .mob-hamburger{background:none;border:none;font-size:22px;cursor:pointer;padding:4px 8px}
+  /* 하단 탭바 */
+  .mob-tabbar{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);z-index:150}
+  .mob-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;font-size:10px;color:var(--text-sub);cursor:pointer;gap:3px;border:none;background:none}
+  .mob-tab.active{color:var(--primary)}
+  .mob-tab .ico{font-size:20px}
+  /* stat-row */
+  .stat-row{grid-template-columns:1fr 1fr!important;gap:10px!important}
+  .stat-card .val{font-size:22px!important}
+  /* widget */
+  .widget-row{grid-template-columns:1fr!important}
+  /* site-grid */
+  .site-grid{grid-template-columns:1fr!important}
+  /* form */
+  .form-row.col2,.form-row.col3,.form-row.col4{grid-template-columns:1fr!important}
+  .form-section{padding:16px!important}
+  /* table 가로 스크롤 */
+  .table-wrap{overflow-x:auto!important}
+  table{min-width:600px}
+  /* checkbox-grid */
+  .checkbox-grid{grid-template-columns:repeat(2,1fr)!important}
+  /* page-header */
+  .page-header{flex-wrap:wrap;gap:8px}
+  /* modal */
+  .modal{min-width:unset!important;width:96%!important;padding:20px!important}
+}
+@media(min-width:769px){
+  .mob-header{display:none}
+  .mob-tabbar{display:none}
+  .mob-overlay{display:none!important}
+}
+</style>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div><p id="loading-msg">불러오는 중...</p></div>
+
+<div id="mob-overlay" class="mob-overlay" onclick="closeSidebar()"></div>
+
+<div id="login-page">
+  <div class="login-box">
+    <img src="https://raw.githubusercontent.com/iotlabsa01/inventory-app/main/Logo.png" alt="IoT Lab" style="width:150px;margin:0 auto 16px;display:block" onerror="this.style.display='none'">
+    <p>스마트홈 관리 시스템</p>
+    <label>아이디</label>
+    <input type="text" id="uid" placeholder="아이디 입력" autocomplete="off">
+    <label>비밀번호</label>
+    <input type="password" id="upw" placeholder="비밀번호 입력">
+    <button class="btn-login" id="btn-login" onclick="doLogin()">로그인</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <span class="ico">🏠</span>
+      <div><div class="name">IoT Lab</div><div class="sub">스마트홈 관리</div></div>
+    </div>
+    <nav>
+      <div class="nav-item" onclick="goPage('dashboard')"><span class="ico">⊞</span> 대시보드</div>
+      <div class="divider"></div>
+      <div class="nav-item" onclick="toggleMenu('menu-order')"><span class="ico">📦</span> 발주·재고</div>
+      <div id="menu-order" class="nav-sub" style="display:none">
+        <div class="nav-sub-item" onclick="goPage('req-add')">출고 요청 등록</div>
+        <div class="nav-sub-item" onclick="goPage('req-list')">출고 요청 목록</div>
+        <div class="nav-sub-item" onclick="goPage('inventory')">재고 관리</div>
+      </div>
+      <div class="divider"></div>
+      <div class="nav-item" onclick="toggleMenu('menu-site')"><span class="ico">🏗</span> 현장 관리</div>
+      <div id="menu-site" class="nav-sub" style="display:none">
+        <div class="nav-sub-item" onclick="goPage('site-list')">현장 목록</div>
+        <div class="nav-sub-item" onclick="goPage('site-add')">현장 추가</div>
+        <div class="nav-sub-item" onclick="goPage('site-done')">마감 현장</div>
+      </div>
+      <div class="divider"></div>
+      <div class="nav-item" onclick="goPage('calendar')"><span class="ico">📅</span> 캘린더</div>
+      <div class="nav-item" onclick="goPage('help')"><span class="ico">❓</span> 도움말</div>
+    </nav>
+    <div class="sidebar-footer">
+      <span><span class="user-dot"></span><span id="user-name">사용자</span></span>
+      <button class="btn-logout" onclick="doLogout()">나가기</button>
+    </div>
+  </div>
+
+  <!-- 모바일 상단 헤더 -->
+  <div class="mob-header">
+    <button class="mob-hamburger" onclick="openSidebar()">☰</button>
+    <span class="title">IoT Lab 관리</span>
+    <span style="width:38px"></span>
+  </div>
+
+  <div class="main">
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-title">대시보드</div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="label">전체 품목</div><div class="val" id="db-total">0</div><div class="sub">종</div></div>
+        <div class="stat-card danger"><div class="label">재고 부족</div><div class="val" id="db-lack">0</div><div class="sub">즉시 보충 필요</div></div>
+        <div class="stat-card warn"><div class="label">미완료 출고요청</div><div class="val" id="db-pending">0</div><div class="sub">건 진행중</div></div>
+        <div class="stat-card ok"><div class="label">이번달 출고 완료</div><div class="val" id="db-done">0</div><div class="sub">건</div></div>
+      </div>
+      <div id="db-alerts"></div>
+      <div class="widget-row">
+        <div class="widget"><h3>재고 부족 / 주의 품목</h3><div id="db-stock-list"></div></div>
+        <div class="widget"><h3>미완료 출고요청</h3><div id="db-req-list"></div></div>
+        <div class="widget"><h3>현장별 진행 현황</h3><div id="db-site-list"></div></div>
+        <div class="widget"><h3>최근 입출고</h3><div id="db-log-list"></div></div>
+      </div>
+    </div>
+
+    <!-- REQ ADD -->
+    <div id="page-req-add" class="page">
+      <div class="page-title">출고 요청 등록</div>
+      <div class="form-section">
+        <h3>기본 정보</h3>
+        <div class="form-row col3">
+          <div class="form-group"><label>발주 요청일</label><input type="date" id="ra-date"></div>
+          <div class="form-group"><label>고객사 이름</label><input type="text" id="ra-client" placeholder="자동 입력"></div>
+          <div class="form-group"><label>현장 주소</label><input type="text" id="ra-addr" placeholder="자동 입력"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>현장 프로젝트명</label>
+            <select id="ra-project" onchange="onProjectChange()"><option value="">-- 선택 --</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>품목 정보</h3>
+        <div id="req-items-wrap"></div>
+        <div class="form-row col2" style="margin-top:4px">
+          <div class="form-group"><label>발주 필요 수량</label><input type="text" id="ra-order" readonly placeholder="자동계산"></div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="addReqItem()">+ 품목 추가</button>
+      </div>
+      <div class="form-section">
+        <h3>비고</h3>
+        <div class="form-group"><textarea id="ra-note" placeholder="특이사항, 주의사항 등..."></textarea></div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-gray" onclick="resetReqForm()">초기화</button>
+        <button class="btn btn-primary" onclick="submitReq()">출고 요청 등록</button>
+      </div>
+    </div>
+
+    <!-- REQ LIST -->
+    <div id="page-req-list" class="page">
+      <div class="page-title">출고 요청 목록</div>
+      <div class="stat-row">
+        <div class="stat-card ok"><div class="label">출고 완료</div><div class="val" id="rl-done">0</div></div>
+        <div class="stat-card warn"><div class="label">일부 출고</div><div class="val" id="rl-part">0</div></div>
+        <div class="stat-card danger"><div class="label">미출고</div><div class="val" id="rl-none">0</div></div>
+        <div class="stat-card yellow"><div class="label">기한 임박</div><div class="val" id="rl-imminent">0</div></div>
+      </div>
+      <div class="toolbar">
+        <select class="sel" id="rl-f-proj" onchange="renderRequests()"><option value="">전체 프로젝트</option></select>
+        <select class="sel" id="rl-f-cat" onchange="renderRequests()"><option value="">전체 카테고리</option></select>
+        <select class="sel" id="rl-f-status" onchange="renderRequests()"><option value="">전체 출고상태</option><option>미출고</option><option>일부 출고</option><option>출고 완료</option></select>
+        <input class="search" id="rl-f-client" placeholder="고객사 검색..." oninput="renderRequests()">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>요청일</th><th>고객사</th><th>프로젝트명</th><th>카테고리</th><th>품목</th><th>출고요청</th><th>현재재고</th><th>출고준비</th><th>발주필요</th><th>납품수량</th><th>출고요청일</th><th>출고확인일</th><th>출고상태</th><th>진행상태</th><th>명세서</th><th>비고(S/N)</th><th>등록자</th><th>수정자</th><th>편집</th></tr></thead>
+          <tbody id="req-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- INVENTORY -->
+    <div id="page-inventory" class="page">
+      <div class="page-header"><h1>재고 관리</h1><button class="btn btn-outline btn-sm" onclick="openModal('modal-cat')">카테고리 관리</button></div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="label">전체 품목</div><div class="val" id="inv-total">0</div><div class="sub">종</div></div>
+        <div class="stat-card"><div class="label">카테고리</div><div class="val" id="inv-cats">0</div><div class="sub">개</div></div>
+        <div class="stat-card warn"><div class="label">재고 주의</div><div class="val" id="inv-warn">0</div><div class="sub">종</div></div>
+        <div class="stat-card danger"><div class="label">재고 부족</div><div class="val" id="inv-lack">0</div><div class="sub">종</div></div>
+      </div>
+      <div class="inv-tabs">
+        <div class="inv-tab active" onclick="invTab('stock')">재고 목록</div>
+        <div class="inv-tab" onclick="invTab('log')">입출고 기록</div>
+      </div>
+      <div id="inv-stock-panel">
+        <div class="toolbar">
+          <select class="sel" id="inv-cat-filter" onchange="renderInventory()"><option value="">전체 카테고리</option></select>
+          <select class="sel" id="inv-status-filter" onchange="renderInventory()"><option value="">전체 상태</option><option value="ok">정상</option><option value="warn">주의</option><option value="lack">부족</option></select>
+          <input class="search" id="inv-search" placeholder="품목 검색..." oninput="renderInventory()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>카테고리</th><th>품목명</th><th>단위</th><th>현재 재고</th><th>출고필요수량</th><th>실가용재고</th><th>최소기준</th><th>수량 조절</th><th>입출고 등록</th><th>편집</th></tr></thead>
+            <tbody id="inv-tbody"></tbody>
+          </table>
+        </div>
+        <div class="form-section" style="margin-top:18px">
+          <h3>새 품목 추가</h3>
+          <div class="form-row col4">
+            <div class="form-group"><label>카테고리</label><select id="new-cat"><option value="">-- 선택 --</option></select></div>
+            <div class="form-group"><label>품목명</label><input type="text" id="new-name" placeholder="품목명"></div>
+            <div class="form-group"><label>초기 재고</label><input type="number" id="new-qty" placeholder="0" min="0"></div>
+            <div class="form-group"><label>단위</label><input type="text" id="new-unit" placeholder="EA / m / 본"></div>
+          </div>
+          <div class="form-row col4"><div class="form-group"><label>최소 재고 기준</label><input type="number" id="new-min" placeholder="예: 10" min="0"></div></div>
+          <div style="text-align:right"><button class="btn btn-primary" onclick="addItem()">품목 추가</button></div>
+        </div>
+      </div>
+      <div id="inv-log-panel" style="display:none">
+        <div class="toolbar">
+          <select class="sel" id="log-f-type" onchange="renderLog()"><option value="">전체 구분</option><option value="in">입고</option><option value="out">출고</option></select>
+          <input class="search" id="log-f-item" placeholder="품목 검색..." oninput="renderLog()">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>날짜</th><th>구분</th><th>품목</th><th>수량</th><th>단위</th><th>사유/메모</th><th>처리자</th><th>삭제</th></tr></thead>
+            <tbody id="log-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SITE LIST -->
+    <div id="page-site-list" class="page">
+      <div class="page-header"><h1>현장 목록</h1><button class="btn btn-primary" onclick="goPage('site-add')">+ 현장 추가</button></div>
+      <div class="toolbar">
+        <input class="search" id="site-search" placeholder="고객사 / 현장명 검색..." oninput="renderSites()">
+        <select class="sel" id="site-f-install" onchange="renderSites()"><option value="">전체 설치 항목</option><option>난방</option><option>조명</option><option>스위치</option><option>차양</option><option>네트워크</option><option>CCTV</option><option>출입통제</option></select>
+      </div>
+      <div class="site-grid" id="site-grid"></div>
+    </div>
+
+    <!-- SITE DETAIL -->
+    <div id="page-site-detail" class="page">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <button class="btn btn-gray btn-sm" onclick="goPage('site-list')">← 목록</button>
+        <h1 style="font-size:22px;font-weight:700" id="sd-title"></h1>
+        <span id="sd-dday" style="font-size:13px;padding:4px 12px;border-radius:10px;font-weight:700"></span>
+      </div>
+      <div class="site-detail-tabs">
+        <div class="site-tab active" onclick="siteTab('info')">기본 정보</div>
+        <div class="site-tab" onclick="siteTab('materials')">필요 자재</div>
+        <div class="site-tab" onclick="siteTab('wbs')">WBS 시공 관리</div>
+      </div>
+      <div id="sd-info"></div>
+      <div id="sd-materials" style="display:none"></div>
+      <div id="sd-wbs" style="display:none"></div>
+    </div>
+
+    <!-- SITE ADD -->
+    <div id="page-site-add" class="page">
+      <div class="page-title">현장 추가</div>
+      <div class="form-section">
+        <h3>기본 정보</h3>
+        <div class="form-row col2">
+          <div class="form-group"><label>고객사</label><input type="text" id="sa-client" placeholder="(주)한국건설"></div>
+          <div class="form-group"><label>현장 주소</label><input type="text" id="sa-addr" placeholder="서울시 강남구..."></div>
+        </div>
+        <div class="form-row col2">
+          <div class="form-group"><label>현장 프로젝트명</label><input type="text" id="sa-pname" placeholder="강남 오피스텔 신축공사"></div>
+          <div class="form-group"><label>마감 일정</label><input type="date" id="sa-deadline"></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>담당자 정보</h3>
+        <div id="sa-contacts-wrap">
+          <div class="form-row col2" style="margin-bottom:10px">
+            <div class="form-group"><label>담당자명</label><input type="text" placeholder="홍길동"></div>
+            <div class="form-group"><label>연락처</label><input type="text" placeholder="010-0000-0000"></div>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="addContact()">+ 담당자 추가</button>
+      </div>
+      <div class="form-section">
+        <h3>설치 내역</h3>
+        <div class="checkbox-grid">
+          <label class="checkbox-item"><input type="checkbox" name="install" value="난방"> 난방</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="조명"> 조명</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="스위치"> 스위치</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="차양"> 차양</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="네트워크"> 네트워크</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="CCTV"> CCTV</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="출입통제"> 출입통제</label>
+          <label class="checkbox-item"><input type="checkbox" name="install" value="기타"> 기타</label>
+        </div>
+      </div>
+      <div class="form-section">
+        <h3>비고</h3>
+        <div class="form-group"><textarea id="sa-note" placeholder="기타 특이사항..."></textarea></div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-gray" onclick="goPage('site-list')">취소</button>
+        <button class="btn btn-primary" onclick="submitSite()">현장 등록</button>
+      </div>
+    </div>
+
+    <!-- SITE DONE -->
+    <div id="page-site-done" class="page">
+      <div class="page-title">마감 현장 (END Project)</div>
+      <div id="done-grid" class="site-grid"></div>
+      <div id="done-empty" class="empty"><span class="ico">🏁</span>마감된 현장이 없습니다.<br><small>모든 WBS 항목이 완료되면 자동으로 이곳으로 이동됩니다.</small></div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div id="page-calendar" class="page">
+      <div class="cal-header">
+        <div class="cal-nav">
+          <button onclick="calMove(-1)">‹</button>
+          <span class="cal-title" id="cal-title"></span>
+          <button onclick="calMove(1)">›</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-cal-add')">+ 일정 추가</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <!-- HELP -->
+    <div id="page-help" class="page">
+      <div class="page-title">도움말</div>
+      <div style="display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="helpTab(this,'h-dash')">대시보드</button>
+        <button class="btn btn-gray btn-sm" onclick="helpTab(this,'h-inv')">발주·재고</button>
+        <button class="btn btn-gray btn-sm" onclick="helpTab(this,'h-site')">현장 관리</button>
+        <button class="btn btn-gray btn-sm" onclick="helpTab(this,'h-wbs')">WBS 시공관리</button>
+        <button class="btn btn-gray btn-sm" onclick="helpTab(this,'h-cal')">캘린더</button>
+      </div>
+      <div id="h-dash" class="form-section"><h3>대시보드</h3><p style="font-size:14px;line-height:2">요약 지표(4칸), 경고 배너(마감 14일 이내), 재고부족·미완료출고·현장진행·최근입출고 위젯.</p></div>
+      <div id="h-inv" class="form-section" style="display:none"><h3>발주·재고</h3><p style="font-size:14px;line-height:2">재고 목록/입출고 기록 탭. 카테고리·품목 추가/삭제/편집. 입출고 기록 삭제 시 재고 자동 복구.</p></div>
+      <div id="h-site" class="form-section" style="display:none"><h3>현장 관리</h3><p style="font-size:14px;line-height:2">D-day 카운트(14일↓노랑, 7일↓빨강). 필요자재→출고요청 자동연동. WBS 100% 완료 시 마감 현장 자동 이동.</p></div>
+      <div id="h-wbs" class="form-section" style="display:none"><h3>WBS 시공관리</h3><p style="font-size:14px;line-height:2">설치 현황 테이블(설치위치/카테고리/품목/내용) + 시공 체크리스트. 항목 추가/삭제 가능.</p></div>
+      <div id="h-cal" class="form-section" style="display:none"><h3>캘린더</h3><p style="font-size:14px;line-height:2">현장 마감일 자동 표시. 수동 일정 추가 가능.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-bg" id="modal-cat"><div class="modal"><button class="modal-close" onclick="closeModal('modal-cat')">×</button><h3>카테고리 관리</h3><div id="cat-list" style="margin-bottom:16px"></div><div style="display:flex;gap:10px"><input type="text" id="new-cat-name" placeholder="새 카테고리명" style="flex:1;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px;outline:none"><button class="btn btn-primary btn-sm" onclick="addCategory()">추가</button></div></div></div>
+<div class="modal-bg" id="modal-inout"><div class="modal"><button class="modal-close" onclick="closeModal('modal-inout')">×</button><h3 id="inout-title">입출고 등록</h3><div class="form-group" style="margin-bottom:14px"><label>구분</label><select id="inout-type" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option value="in">입고</option><option value="out">출고</option></select></div><div class="form-group" style="margin-bottom:14px"><label>수량</label><input type="number" id="inout-qty" min="1" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div class="form-group" style="margin-bottom:14px"><label>비고</label><input type="text" id="inout-note" placeholder="사유 또는 메모" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div style="text-align:right"><button class="btn btn-primary" onclick="submitInOut()">등록</button></div></div></div>
+<div class="modal-bg" id="modal-edit-item"><div class="modal"><button class="modal-close" onclick="closeModal('modal-edit-item')">×</button><h3>품목 편집</h3><input type="hidden" id="edit-item-id"><div class="form-group" style="margin-bottom:14px"><label>카테고리</label><select id="edit-item-cat" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></select></div><div class="form-group" style="margin-bottom:14px"><label>품목명</label><input type="text" id="edit-item-name" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div class="form-group" style="margin-bottom:14px"><label>단위</label><input type="text" id="edit-item-unit" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div class="form-group" style="margin-bottom:14px"><label>최소 재고 기준</label><input type="number" id="edit-item-min" min="0" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div style="text-align:right"><button class="btn btn-primary" onclick="submitEditItem()">저장</button></div></div></div>
+<div class="modal-bg" id="modal-edit-req"><div class="modal"><button class="modal-close" onclick="closeModal('modal-edit-req')">×</button><h3>출고 요청 편집</h3><input type="hidden" id="edit-req-id"><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px"><div class="form-group"><label>출고 상태</label><select id="edit-req-status" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option>미출고</option><option>일부 출고</option><option>출고 완료</option></select></div><div class="form-group"><label>진행 상태</label><select id="edit-req-progress" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option>대기중</option><option>준비중</option><option>출고완료</option></select></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px"><div class="form-group"><label>출고 준비 수량</label><input type="number" id="edit-req-prepared" min="0" placeholder="0" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div class="form-group"><label>납품 수량 <span style="color:var(--danger);font-size:11px">(재고 차감)</span></label><input type="number" id="edit-req-delivered" min="0" placeholder="0" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px"><div class="form-group"><label>출고 요청일</label><input type="date" id="edit-req-rdate" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div class="form-group"><label>출고 확인일</label><input type="date" id="edit-req-cdate" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px"><div class="form-group"><label>명세서</label><select id="edit-req-cert" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option value="0">미발행</option><option value="1">발급</option></select></div><div class="form-group"><label>비고 (S/N)</label><input type="text" id="edit-req-sn" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div></div><div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:12px;color:#795548;margin-bottom:14px" id="edit-req-info"></div><div style="text-align:right"><button class="btn btn-primary" onclick="submitEditReq()">저장</button></div></div></div>
+<div class="modal-bg" id="modal-cal-add"><div class="modal"><button class="modal-close" onclick="closeModal('modal-cal-add')">×</button><h3>일정 추가</h3><div class="form-group" style="margin-bottom:14px"><label>날짜</label><input type="date" id="cal-new-date" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div class="form-group" style="margin-bottom:14px"><label>일정 내용</label><input type="text" id="cal-new-txt" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div style="text-align:right"><button class="btn btn-primary" onclick="addCalEvent()">추가</button></div></div></div>
+<div class="modal-bg" id="modal-mat"><div class="modal"><button class="modal-close" onclick="closeModal('modal-mat')">×</button><h3>필요 자재 추가</h3><div class="form-group" style="margin-bottom:14px"><label>카테고리</label><select id="mat-cat" onchange="onMatCatChange()" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option value="">-- 선택 --</option></select></div><div class="form-group" style="margin-bottom:14px"><label>품목</label><select id="mat-item" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option value="">-- 카테고리 선택 후 --</option></select></div><div class="form-group" style="margin-bottom:14px"><label>수량</label><input type="number" id="mat-qty" min="1" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div style="text-align:right"><button class="btn btn-primary" onclick="addMaterial()">추가</button></div></div></div>
+<div class="modal-bg" id="modal-wbs-add"><div class="modal"><button class="modal-close" onclick="closeModal('modal-wbs-add')">×</button><h3>WBS 체크리스트 항목 추가</h3><div class="form-group" style="margin-bottom:14px"><label>섹션</label><select id="wbs-add-section" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></select></div><div class="form-group" style="margin-bottom:14px"><label>단계</label><select id="wbs-add-phase" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"><option value="pre">시공전 감리</option><option value="doing">시공중 내역</option><option value="hand">고객 인수인계</option></select></div><div class="form-group" style="margin-bottom:14px"><label>항목명</label><input type="text" id="wbs-add-name" style="width:100%;border:1.5px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px"></div><div style="text-align:right"><button class="btn btn-primary" onclick="submitWbsAdd()">추가</button></div></div></div>
+
+<script>
+const GAS_URL='https://script.google.com/macros/s/AKfycbxUggMzhRtykujubXKqpKUiE294Njf5DTogcChpKknlvzdEjHIqRpSh8fP2H-FKXlYt/exec';
+function gasGet(p){return fetch(`${GAS_URL}?${new URLSearchParams(p)}`).then(r=>r.json());}
+function gasPost(b){return fetch(GAS_URL,{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());}
+function loading(on,msg='처리 중...'){document.getElementById('loading').classList.toggle('on',on);document.getElementById('loading-msg').textContent=msg;}
+
+// 날짜 유틸
+function fmtDate(v){
+  if(!v||v==='—')return'—';
+  const s=String(v);
+  if(s.includes('T')){const d=new Date(s);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().split('T')[0];}
+  return s.split('T')[0]||s;
+}
+function todayStr(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+
+// 상태
+let currentUser=null,categories=[],inventory=[],inoutLog=[],requests=[],sites=[],calEvents=[];
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth(),currentSiteId=null;
+
+// AUTH
+async function doLogin(){
+  const id=document.getElementById('uid').value.trim(),pw=document.getElementById('upw').value;
+  if(!id||!pw){showErr('아이디와 비밀번호를 입력하세요');return;}
+  const btn=document.getElementById('btn-login');btn.disabled=true;btn.textContent='로그인 중...';
+  loading(true,'로그인 중...');
+  try{
+    const res=await gasGet({action:'login',id,pw});
+    if(!res.ok){showErr(res.msg);return;}
+    currentUser={id,name:res.name,role:res.role};
+    document.getElementById('login-page').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('user-name').textContent=res.name;
+    await initApp();
+  }catch(e){showErr('서버 연결 실패: '+e.message);}
+  finally{btn.disabled=false;btn.textContent='로그인';loading(false);}
+}
+function showErr(msg){const el=document.getElementById('login-err');el.textContent=msg;el.style.display='block';}
+document.getElementById('upw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+function doLogout(){
+  currentUser=null;inventory=[];requests=[];sites=[];inoutLog=[];categories=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+  document.getElementById('uid').value='';document.getElementById('upw').value='';
+  document.getElementById('login-err').style.display='none';
+}
+
+// 초기화
+async function initApp(){
+  loading(true,'데이터 불러오는 중...');
+  try{
+    const [invR,reqR,logR,siteR,catR]=await Promise.all([
+      gasGet({action:'getInventory'}),gasGet({action:'getRequests'}),
+      gasGet({action:'getLog'}),gasGet({action:'getSites'}),gasGet({action:'getCategories'})
+    ]);
+    inventory=(invR.data||[]).map(r=>({id:r['ID'],cat:r['카테고리'],name:r['품목명'],unit:r['단위'],qty:Number(r['현재재고']),min:Number(r['최소기준']),adj:0}));
+    requests=(reqR.data||[]).map(r=>({id:r['ID'],date:fmtDate(r['요청일']),client:r['고객사'],project:r['프로젝트'],cat:r['카테고리'],item:r['품목'],reqQty:Number(r['요청수량']),stockAtReq:Number(r['재고(요청시)']),prepared:Number(r['출고준비']),orderNeeded:Number(r['발주필요']),delivered:Number(r['납품수량']),reqDate:fmtDate(r['출고요청일']),confirmDate:fmtDate(r['출고확인일']),status:r['출고상태'],progress:r['진행상태'],certified:r['명세서']==='Y',sn:r['비고SN'],memo:'',registrar:r['등록자'],modifier:r['수정자']}));
+    inoutLog=(logR.data||[]).map(r=>({id:r['ID'],date:fmtDate(r['날짜']),item:r['품목'],unit:r['단위'],type:r['구분'],qty:Number(r['수량']),note:r['사유'],by:r['처리자']}));
+    sites=(siteR.data||[]).map(r=>({id:r['ID'],client:r['고객사'],addr:r['주소'],project:r['프로젝트명'],deadline:fmtDate(r['마감일']),installs:r['설치내역']||[],contacts:r['담당자']||[],note:r['비고'],materials:r['자재목록']||[],installRows:r['설치현황']||[],done:r['완료여부']==='Y',wbs:null}));
+    categories=catR.data||[];
+    inventory.forEach(i=>{if(i.cat&&!categories.includes(i.cat))categories.push(i.cat);});
+    document.getElementById('ra-date').value=todayStr();
+    updateCatSelects();refreshProjectDropdown();
+    renderDashboard();renderInventory();renderLog();renderRequests();renderSites();renderCalendar();
+    const wrap=document.getElementById('req-items-wrap');wrap.innerHTML='';wrap.appendChild(makeReqItemRow());
+  }catch(e){alert('데이터 로드 실패: '+e.message);}
+  finally{loading(false);}
+}
+
+// 모바일 사이드바
+function openSidebar(){
+  document.querySelector('.sidebar').classList.add('open');
+  document.getElementById('mob-overlay').classList.add('on');
+}
+function closeSidebar(){
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('mob-overlay').classList.remove('on');
+}
+function mobTab(btn,page){
+  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  closeSidebar();
+  goPage(page);
+}
+
+// 모바일 nav 클릭 시 사이드바 닫기
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  closeSidebar();
+  if(id==='dashboard')renderDashboard();
+  if(id==='site-list')renderSites();
+  if(id==='inventory'){renderInventory();renderLog();}
+  if(id==='req-list')renderRequests();
+  if(id==='site-done')renderDoneSites();
+  if(id==='calendar')renderCalendar();
+}
+function toggleMenu(id){const el=document.getElementById(id);el.style.display=el.style.display==='none'?'block':'none';}
+function invTab(tab){
+  document.querySelectorAll('.inv-tab').forEach((t,i)=>t.classList.toggle('active',['stock','log'][i]===tab));
+  document.getElementById('inv-stock-panel').style.display=tab==='stock'?'block':'none';
+  document.getElementById('inv-log-panel').style.display=tab==='log'?'block':'none';
+}
+
+// DASHBOARD
+function renderDashboard(){
+  const lack=inventory.filter(i=>getStockStatus(i)==='lack').length;
+  const pending=requests.filter(r=>r.status!=='출고 완료').length;
+  const now=new Date(),ym=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const done=requests.filter(r=>r.status==='출고 완료'&&String(r.date).startsWith(ym)).length;
+  document.getElementById('db-total').textContent=inventory.length;
+  document.getElementById('db-lack').textContent=lack;
+  document.getElementById('db-pending').textContent=pending;
+  document.getElementById('db-done').textContent=done;
+  const today=new Date();let alerts='';
+  sites.filter(s=>!s.done&&s.deadline&&s.deadline!=='—').forEach(s=>{
+    const diff=Math.ceil((new Date(s.deadline)-today)/86400000);
+    if(diff<=14)alerts+=`<div class="alert-banner"><span class="dot"></span><span><strong>${s.project}</strong> · ${s.client} — 마감일 ${s.deadline} <strong>D-${diff}</strong> · 공정 ${getSiteProgress(s)}%</span></div>`;
+  });
+  document.getElementById('db-alerts').innerHTML=alerts;
+  const wi=inventory.filter(i=>getStockStatus(i)!=='ok');
+  document.getElementById('db-stock-list').innerHTML=wi.length?wi.map(i=>`<div class="widget-item"><span>${i.name}</span><span class="badge ${getStockStatus(i)==='lack'?'tag-danger':'tag-warn'}">${i.qty} ${i.unit}</span></div>`).join(''):'<div class="widget-item" style="color:var(--text-sub)">없음</div>';
+  const pr=requests.filter(r=>r.status!=='출고 완료').slice(0,4);
+  document.getElementById('db-req-list').innerHTML=pr.length?pr.map(r=>`<div class="widget-item"><div><div>${r.project}</div><small style="color:var(--text-sub)">${r.item} · ${r.reqQty}개</small></div><span class="badge tag-danger">${r.status}</span></div>`).join(''):'<div class="widget-item" style="color:var(--text-sub)">없음</div>';
+  const as=sites.filter(s=>!s.done).slice(0,4);
+  document.getElementById('db-site-list').innerHTML=as.length?as.map(s=>`<div class="widget-item"><div><div>${s.project}</div><small style="color:var(--text-sub)">${s.client}</small></div><span class="badge tag-warn">공정 ${getSiteProgress(s)}%</span></div>`).join(''):'<div class="widget-item" style="color:var(--text-sub)">없음</div>';
+  document.getElementById('db-log-list').innerHTML=inoutLog.length?inoutLog.slice(-4).reverse().map(l=>`<div class="widget-item"><span>${l.item} <span class="${l.type==='in'?'log-in':'log-out'}">${l.type==='in'?'입고':'출고'}</span> ${l.qty}${l.unit}</span><span style="font-size:11px;color:var(--text-sub)">${l.by}</span></div>`).join(''):'<div class="widget-item" style="color:var(--text-sub)">없음</div>';
+}
+
+// INVENTORY
+function getNeededQty(n){return requests.filter(r=>r.item===n&&r.status!=='출고 완료').reduce((s,r)=>s+r.reqQty,0);}
+function getStockStatus(item){if(item.min>0&&item.qty<=0)return'lack';if(item.min>0&&item.qty<item.min)return'warn';return'ok';}
+function renderInventory(){
+  const catF=document.getElementById('inv-cat-filter').value,stF=document.getElementById('inv-status-filter').value;
+  const srch=(document.getElementById('inv-search').value||'').toLowerCase();
+  const cs=document.getElementById('inv-cat-filter'),pv=cs.value;
+  cs.innerHTML='<option value="">전체 카테고리</option>'+categories.map(c=>`<option value="${c}">${c}</option>`).join('');cs.value=pv;
+  const items=inventory.filter(i=>{if(catF&&i.cat!==catF)return false;if(stF&&getStockStatus(i)!==stF)return false;if(srch&&!i.name.toLowerCase().includes(srch))return false;return true;});
+  document.getElementById('inv-total').textContent=inventory.length;
+  document.getElementById('inv-cats').textContent=categories.length;
+  document.getElementById('inv-warn').textContent=inventory.filter(i=>getStockStatus(i)==='warn').length;
+  document.getElementById('inv-lack').textContent=inventory.filter(i=>getStockStatus(i)==='lack').length;
+  document.getElementById('inv-tbody').innerHTML=items.map(item=>{
+    const needed=getNeededQty(item.name),real=item.qty-needed,st=getStockStatus(item);
+    const qc=st==='lack'?'stock-danger':st==='warn'?'stock-warn':'stock-ok';
+    const sb=st==='lack'?'<span class="badge tag-danger" style="margin-left:5px">부족</span>':st==='warn'?'<span class="badge tag-warn" style="margin-left:5px">주의</span>':'';
+    return `<tr><td><span class="pill tag-blue">${item.cat}</span></td><td><strong>${item.name}</strong></td><td>${item.unit}</td><td><span class="${qc}">${item.qty}</span>${sb}</td><td>${needed>0?`<span style="color:var(--warning);font-weight:600">${needed}</span>`:'—'}</td><td><span class="${real<0?'stock-danger':item.min>0&&real<item.min?'stock-warn':'stock-ok'}">${real}</span></td><td>${item.min||0}</td><td><div class="qty-ctrl"><button class="qty-btn" onclick="adjustQty('${item.id}',-1)">−</button><input type="number" value="${item.adj||0}" id="adj-${item.id}" style="width:54px;text-align:center;border:1px solid var(--border);border-radius:5px;padding:5px;font-size:13px"><button class="qty-btn" onclick="adjustQty('${item.id}',1)">+</button><button class="btn btn-primary btn-sm" onclick="applyAdj('${item.id}')" style="margin-left:5px">적용</button></div></td><td><button class="btn btn-outline btn-sm" onclick="openInOut('${item.id}')">+ 입출고</button></td><td style="white-space:nowrap"><button class="icon-btn" onclick="openEditItem('${item.id}')">✏️</button><button class="icon-btn" onclick="deleteItem('${item.id}')">✕</button></td></tr>`;
+  }).join('');
+  updateCatSelects();
+}
+function adjustQty(id,d){const i=inventory.find(x=>x.id==id);if(!i)return;i.adj=(i.adj||0)+Number(d);const el=document.getElementById('adj-'+id);if(el)el.value=i.adj;}
+async function applyAdj(id){
+  const i=inventory.find(x=>x.id==id);if(!i)return;
+  const el=document.getElementById('adj-'+id);const d=parseInt(el?el.value:0)||0;if(d===0)return;
+  loading(true,'재고 조정 중...');
+  try{const res=await gasPost({action:'adjustStock',id:i.id,delta:d,logNote:'수동조절',user:currentUser.name});if(!res.ok){alert('실패: '+res.msg);return;}i.qty=res.newQty;i.adj=0;inoutLog.push({id:Date.now().toString(),item:i.name,unit:i.unit,type:d>0?'in':'out',qty:Math.abs(d),note:'수동조절',by:currentUser.name,date:todayStr()});renderInventory();renderLog();renderDashboard();}finally{loading(false);}
+}
+function openEditItem(id){const i=inventory.find(x=>x.id==id);if(!i)return;document.getElementById('edit-item-id').value=id;document.getElementById('edit-item-cat').innerHTML=categories.map(c=>`<option value="${c}" ${c===i.cat?'selected':''}>${c}</option>`).join('');document.getElementById('edit-item-name').value=i.name;document.getElementById('edit-item-unit').value=i.unit;document.getElementById('edit-item-min').value=i.min||0;openModal('modal-edit-item');}
+async function submitEditItem(){
+  const id=document.getElementById('edit-item-id').value;const i=inventory.find(x=>x.id==id);if(!i)return;
+  const body={action:'updateItem',id,cat:document.getElementById('edit-item-cat').value,name:document.getElementById('edit-item-name').value.trim(),unit:document.getElementById('edit-item-unit').value.trim(),min:parseInt(document.getElementById('edit-item-min').value)||0};
+  loading(true,'저장 중...');try{const res=await gasPost(body);if(!res.ok){alert('실패: '+res.msg);return;}i.cat=body.cat;i.name=body.name;i.unit=body.unit;i.min=body.min;closeModal('modal-edit-item');renderInventory();}finally{loading(false);}
+}
+async function deleteItem(id){
+  if(!confirm('이 품목을 삭제하시겠습니까?'))return;loading(true,'삭제 중...');
+  try{const res=await gasPost({action:'deleteItem',id});if(!res.ok){alert('실패: '+res.msg);return;}inventory=inventory.filter(x=>x.id!=id);renderInventory();renderDashboard();}finally{loading(false);}
+}
+let inoutTarget=null;
+function openInOut(id){inoutTarget=id;const i=inventory.find(x=>x.id==id);document.getElementById('inout-title').textContent=`입출고 등록 — ${i?i.name:''}`;document.getElementById('inout-qty').value='';document.getElementById('inout-note').value='';openModal('modal-inout');}
+async function submitInOut(){
+  const i=inventory.find(x=>x.id==inoutTarget);if(!i)return;
+  const t=document.getElementById('inout-type').value,q=parseInt(document.getElementById('inout-qty').value)||0,n=document.getElementById('inout-note').value;
+  if(q<=0){alert('수량을 입력하세요');return;}if(t==='out'&&i.qty<q){alert('현재 재고보다 출고 수량이 많습니다.');return;}
+  loading(true,'등록 중...');
+  try{
+    const res=await gasPost({action:'adjustStock',id:i.id,delta:t==='in'?q:-q,logNote:n||'입출고등록',user:currentUser.name});
+    if(!res.ok){alert('실패: '+res.msg);return;}
+    i.qty=res.newQty;
+    inoutLog.push({id:Date.now().toString(),item:i.name,unit:i.unit,type:t,qty:q,note:n,by:currentUser.name,date:todayStr()});
+    closeModal('modal-inout');renderInventory();renderLog();renderDashboard();
+  }finally{loading(false);}
+}
+async function deleteLog(logId){
+  const l=inoutLog.find(x=>x.id==logId);if(!l)return;
+  if(!confirm(`[${l.date}] ${l.item} ${l.type==='in'?'입고':'출고'} ${l.qty}${l.unit} 기록을 삭제하시겠습니까?\n재고가 원래대로 복구됩니다.`))return;
+  loading(true,'삭제 중...');
+  try{const res=await gasPost({action:'deleteLog',id:l.id,item:l.item,type:l.type,qty:l.qty});if(!res.ok){alert('실패: '+res.msg);return;}const item=inventory.find(x=>x.name===l.item);if(item){if(l.type==='in')item.qty=Math.max(0,item.qty-l.qty);else item.qty+=l.qty;}inoutLog=inoutLog.filter(x=>x.id!=logId);renderLog();renderInventory();renderDashboard();}finally{loading(false);}
+}
+function renderLog(){
+  const typeF=document.getElementById('log-f-type').value,srch=(document.getElementById('log-f-item').value||'').toLowerCase();
+  const logs=inoutLog.filter(l=>{if(typeF&&l.type!==typeF)return false;if(srch&&!l.item.toLowerCase().includes(srch))return false;return true;}).slice().reverse();
+  document.getElementById('log-tbody').innerHTML=logs.length?logs.map(l=>`<tr><td>${fmtDate(l.date)}</td><td><span class="${l.type==='in'?'log-in':'log-out'}">${l.type==='in'?'입고':'출고'}</span></td><td>${l.item}</td><td><strong>${l.qty}</strong></td><td>${l.unit}</td><td>${l.note||'—'}</td><td>${l.by}</td><td><button class="icon-btn" onclick="deleteLog('${l.id}')">✕</button></td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text-sub);padding:28px">입출고 기록이 없습니다.</td></tr>';
+}
+async function addItem(){
+  const cat=document.getElementById('new-cat').value,name=document.getElementById('new-name').value.trim();
+  const qty=parseInt(document.getElementById('new-qty').value)||0,unit=document.getElementById('new-unit').value.trim()||'EA',min=parseInt(document.getElementById('new-min').value)||0;
+  if(!cat||!name){alert('카테고리와 품목명을 입력하세요');return;}
+  loading(true,'추가 중...');
+  try{const res=await gasPost({action:'addItem',cat,name,unit,qty,min});if(!res.ok){alert('실패: '+res.msg);return;}inventory.push({id:res.id,cat,name,qty,unit,min,adj:0});document.getElementById('new-name').value='';document.getElementById('new-qty').value='';document.getElementById('new-unit').value='';document.getElementById('new-min').value='';renderInventory();renderDashboard();}finally{loading(false);}
+}
+function updateCatSelects(){const opts='<option value="">-- 선택 --</option>'+categories.map(c=>`<option value="${c}">${c}</option>`).join('');['new-cat','mat-cat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});}
+function renderCatList(){document.getElementById('cat-list').innerHTML=categories.map((c,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0"><span style="flex:1;font-size:14px">${c}</span><button class="icon-btn" onclick="deleteCategory(${i})">✕</button></div>`).join('');}
+async function addCategory(){const n=document.getElementById('new-cat-name').value.trim();if(!n){alert('카테고리명을 입력하세요');return;}if(categories.includes(n)){alert('이미 존재하는 카테고리입니다');return;}await gasPost({action:'addCategory',name:n});categories.push(n);document.getElementById('new-cat-name').value='';renderCatList();updateCatSelects();renderInventory();}
+async function deleteCategory(i){if(!confirm(`"${categories[i]}" 카테고리를 삭제하시겠습니까?`))return;await gasPost({action:'deleteCategory',name:categories[i]});categories.splice(i,1);renderCatList();updateCatSelects();renderInventory();}
+
+// REQUESTS
+function refreshProjectDropdown(){
+  const activeSites=sites.filter(s=>!s.done);
+  const sel=document.getElementById('ra-project');
+  sel.innerHTML='<option value="">-- 선택 --</option>'
+    +activeSites.map(s=>`<option value="${s.id}">${s.project} (${s.client} / ${s.addr})</option>`).join('')
+    +'<option value="custom">기타 (직접 입력)</option>';
+  // 출고요청 목록 프로젝트 필터 — 마감 현장 제외
+  const fp=document.getElementById('rl-f-proj');
+  if(fp)fp.innerHTML='<option value="">전체 프로젝트</option>'
+    +activeSites.map(s=>`<option>${s.project}</option>`).join('');
+}
+function onProjectChange(){const v=document.getElementById('ra-project').value;const s=sites.find(x=>x.id==v);if(s){document.getElementById('ra-client').value=s.client;document.getElementById('ra-client').readOnly=true;document.getElementById('ra-addr').value=s.addr;document.getElementById('ra-addr').readOnly=true;}else{document.getElementById('ra-client').value='';document.getElementById('ra-client').readOnly=false;document.getElementById('ra-addr').value='';document.getElementById('ra-addr').readOnly=false;}}
+function makeReqItemRow(){const div=document.createElement('div');div.className='req-item-row form-row col4';div.style.marginBottom='12px';div.innerHTML=`<div class="form-group"><label>카테고리</label><select onchange="onCatChange(this)"><option value="">-- 선택 --</option>${categories.map(c=>`<option>${c}</option>`).join('')}</select></div><div class="form-group"><label>품목명</label><select class="item-sel"><option value="">-- 카테고리 선택 --</option></select></div><div class="form-group"><label>현재 재고</label><input type="text" class="item-stock" readonly placeholder="자동"></div><div class="form-group"><label>필요 수량</label><input type="number" class="item-qty" min="0" placeholder="0" oninput="calcOrder(this)"></div>`;return div;}
+function addReqItem(){document.getElementById('req-items-wrap').appendChild(makeReqItemRow());}
+function resetReqForm(){document.getElementById('ra-project').value='';document.getElementById('ra-client').value='';document.getElementById('ra-client').readOnly=false;document.getElementById('ra-addr').value='';document.getElementById('ra-addr').readOnly=false;document.getElementById('ra-note').value='';document.getElementById('ra-order').value='';const wrap=document.getElementById('req-items-wrap');wrap.innerHTML='';wrap.appendChild(makeReqItemRow());}
+function onCatChange(sel){const row=sel.closest('.req-item-row'),itemSel=row.querySelector('.item-sel');const items=inventory.filter(i=>i.cat===sel.value);itemSel.innerHTML='<option value="">-- 선택 --</option>'+items.map(i=>`<option value="${i.id}">${i.name} (재고: ${i.qty})</option>`).join('');itemSel.onchange=function(){const it=inventory.find(x=>x.id==this.value);row.querySelector('.item-stock').value=it?it.qty:'';calcOrder(row.querySelector('.item-qty'));};}
+function calcOrder(qtyInput){const row=qtyInput.closest('.req-item-row');const stock=parseInt(row.querySelector('.item-stock').value)||0,qty=parseInt(qtyInput.value)||0;document.getElementById('ra-order').value=Math.max(0,qty-stock)>0?`${Math.max(0,qty-stock)}개 발주 필요`:'충분';}
+async function submitReq(){
+  const projVal=document.getElementById('ra-project').value,client=document.getElementById('ra-client').value.trim();
+  if(!projVal||!client){alert('프로젝트와 고객사를 선택/입력하세요');return;}
+  const s=sites.find(x=>x.id==projVal);loading(true,'등록 중...');let added=0;
+  try{for(const row of document.querySelectorAll('.req-item-row')){const catSel=row.querySelector('select'),itemSel=row.querySelector('.item-sel');const qty=parseInt(row.querySelector('.item-qty').value)||0;if(!itemSel.value||qty<=0)continue;const item=inventory.find(x=>x.id==itemSel.value);if(!item)continue;const body={action:'addRequest',date:todayStr(),client,project:s?s.project:client,cat:catSel.value,item:item.name,reqQty:qty,stockAtReq:item.qty,orderNeeded:Math.max(0,qty-item.qty),memo:document.getElementById('ra-note').value,registrar:currentUser.name};const res=await gasPost(body);if(res.ok){requests.push({id:res.id,...body,prepared:0,delivered:0,reqDate:'',confirmDate:'',status:'미출고',progress:'대기중',sn:'',modifier:'',certified:false});added++;}}if(added===0){alert('품목과 수량을 입력하세요');return;}alert(`출고 요청 ${added}건이 등록되었습니다.`);resetReqForm();goPage('req-list');renderRequests();renderDashboard();}finally{loading(false);}
+}
+function renderRequests(){
+  const fP=document.getElementById('rl-f-proj').value,fC=document.getElementById('rl-f-cat').value,fS=document.getElementById('rl-f-status').value,fCl=(document.getElementById('rl-f-client').value||'').toLowerCase();
+  const cs=document.getElementById('rl-f-cat'),pv=cs.value;cs.innerHTML='<option value="">전체 카테고리</option>'+categories.map(c=>`<option>${c}</option>`).join('');cs.value=pv;
+  const cnt={'출고 완료':0,'일부 출고':0,'미출고':0};requests.forEach(r=>{if(cnt[r.status]!==undefined)cnt[r.status]++;});
+  document.getElementById('rl-done').textContent=cnt['출고 완료'];document.getElementById('rl-part').textContent=cnt['일부 출고'];document.getElementById('rl-none').textContent=cnt['미출고'];
+  const today=new Date();document.getElementById('rl-imminent').textContent=requests.filter(r=>r.reqDate&&r.reqDate!=='—'&&r.status!=='출고 완료'&&Math.ceil((new Date(r.reqDate)-today)/86400000)<=10).length;
+  const filtered=requests.filter(r=>{if(fP&&r.project!==fP)return false;if(fC&&r.cat!==fC)return false;if(fS&&r.status!==fS)return false;if(fCl&&!r.client.toLowerCase().includes(fCl))return false;return true;});
+  document.getElementById('req-tbody').innerHTML=filtered.length?filtered.map(r=>{const sc=r.status==='출고 완료'?'tag-ok':r.status==='일부 출고'?'tag-warn':'tag-danger';return`<tr><td>${fmtDate(r.date)}</td><td>${r.client}</td><td>${r.project}</td><td><span class="pill tag-blue">${r.cat}</span></td><td>${r.item}</td><td>${r.reqQty}</td><td>${r.stockAtReq}</td><td>${r.prepared}</td><td>${r.orderNeeded>0?`<span style="color:var(--warning);font-weight:600">${r.orderNeeded}</span>`:'0'}</td><td>${r.delivered>0?`<span style="color:var(--success);font-weight:600">${r.delivered}</span>`:0}</td><td>${fmtDate(r.reqDate)}</td><td>${fmtDate(r.confirmDate)}</td><td><span class="badge ${sc}">${r.status}</span></td><td><span class="badge tag-gray">${r.progress}</span></td><td><span style="font-size:12px;color:${r.certified?'var(--success)':'var(--text-sub)'}">${r.certified?'발급':'미발행'}</span></td><td>${r.sn||'—'}</td><td>${r.registrar}</td><td>${r.modifier||'—'}</td><td style="white-space:nowrap"><button class="icon-btn" onclick="openEditReq('${r.id}')">✏️</button><button class="icon-btn" onclick="deleteReq('${r.id}')">✕</button></td></tr>`;}).join(''):'<tr><td colspan="19" style="text-align:center;color:var(--text-sub);padding:28px">출고 요청 내역이 없습니다.</td></tr>';
+}
+function openEditReq(id){const r=requests.find(x=>x.id==id);if(!r)return;document.getElementById('edit-req-id').value=id;document.getElementById('edit-req-status').value=r.status;document.getElementById('edit-req-progress').value=r.progress;document.getElementById('edit-req-prepared').value=r.prepared||0;document.getElementById('edit-req-delivered').value=r.delivered||0;document.getElementById('edit-req-rdate').value=r.reqDate==='—'?'':r.reqDate||'';document.getElementById('edit-req-cdate').value=r.confirmDate==='—'?'':r.confirmDate||'';document.getElementById('edit-req-cert').value=r.certified?'1':'0';document.getElementById('edit-req-sn').value=r.sn||'';const item=inventory.find(i=>i.name===r.item);document.getElementById('edit-req-info').innerHTML=`품목: <strong>${r.item}</strong> &nbsp;|&nbsp; 현재 재고: <strong>${item?item.qty:'?'} ${item?item.unit:''}</strong> &nbsp;|&nbsp; 요청 수량: <strong>${r.reqQty}</strong> &nbsp;|&nbsp; 기존 납품: <strong>${r.delivered}</strong>`;openModal('modal-edit-req');}
+async function submitEditReq(){
+  const id=document.getElementById('edit-req-id').value;const r=requests.find(x=>x.id==id);if(!r)return;
+  const newDel=parseInt(document.getElementById('edit-req-delivered').value)||0,diff=newDel-(r.delivered||0);
+  if(diff>0){const item=inventory.find(i=>i.name===r.item);if(item&&item.qty<diff){alert(`재고 부족: 현재 ${item.qty}개, 추가 납품 ${diff}개`);return;}}
+  const body={action:'updateRequest',id,itemId:inventory.find(i=>i.name===r.item)?.id,status:document.getElementById('edit-req-status').value,progress:document.getElementById('edit-req-progress').value,prepared:parseInt(document.getElementById('edit-req-prepared').value)||0,delivered:newDel,reqDate:document.getElementById('edit-req-rdate').value,confirmDate:document.getElementById('edit-req-cdate').value,certified:document.getElementById('edit-req-cert').value==='1',sn:document.getElementById('edit-req-sn').value,modifier:currentUser.name};
+  loading(true,'저장 중...');
+  try{const res=await gasPost(body);if(!res.ok){alert('실패: '+res.msg);return;}if(diff>0){const item=inventory.find(i=>i.name===r.item);if(item)item.qty=Math.max(0,item.qty-diff);}Object.assign(r,{status:body.status,progress:body.progress,prepared:body.prepared,delivered:newDel,reqDate:body.reqDate,confirmDate:body.confirmDate,certified:body.certified,sn:body.sn,modifier:body.modifier});closeModal('modal-edit-req');renderRequests();renderInventory();renderLog();renderDashboard();}finally{loading(false);}
+}
+async function deleteReq(id){if(!confirm('이 출고 요청을 삭제하시겠습니까?'))return;loading(true,'삭제 중...');try{const res=await gasPost({action:'deleteRequest',id});if(!res.ok){alert('실패: '+res.msg);return;}requests=requests.filter(x=>x.id!=id);renderRequests();renderDashboard();}finally{loading(false);}}
+
+// SITES
+function getSiteProgress(site){if(!site.wbs)return 0;const all=Object.values(site.wbs).flat();if(!all.length)return 0;return Math.round(all.filter(i=>i.done).length/all.length*100);}
+function getDdayInfo(deadline){if(!deadline||deadline==='—')return null;const t=new Date();t.setHours(0,0,0,0);const d=new Date(deadline);d.setHours(0,0,0,0);const diff=Math.ceil((d-t)/86400000);return{diff,cls:diff<=7?'dday-red':diff<=14?'dday-yellow':'dday-ok'};}
+function getWbsTemplate(installs){const tpl={'난방':[{phase:'pre',name:'난방 배관 감리',done:false},{phase:'pre',name:'온도조절기 위치 확인',done:false},{phase:'doing',name:'난방 배관 시공',done:false},{phase:'doing',name:'네스트 제어기 설치',done:false},{phase:'doing',name:'구동기 연결',done:false},{phase:'hand',name:'난방 작동 테스트',done:false},{phase:'hand',name:'사용법 안내',done:false}],'조명':[{phase:'pre',name:'조명 설계 검토',done:false},{phase:'doing',name:'조명 기구 설치',done:false},{phase:'doing',name:'스위치 배선',done:false},{phase:'hand',name:'조명 작동 확인',done:false},{phase:'hand',name:'디밍 설정',done:false}],'스위치':[{phase:'pre',name:'스위치 레이아웃 확인',done:false},{phase:'doing',name:'스위치 패널 설치',done:false},{phase:'hand',name:'스위치 동작 테스트',done:false}],'차양':[{phase:'pre',name:'차양 사양 확인',done:false},{phase:'doing',name:'차양 모터 설치',done:false},{phase:'hand',name:'차양 작동 테스트',done:false}],'네트워크':[{phase:'pre',name:'네트워크 도면 검토',done:false},{phase:'doing',name:'UTP 케이블 포설',done:false},{phase:'doing',name:'허브/공유기 설치',done:false},{phase:'hand',name:'네트워크 속도 테스트',done:false}],'CCTV':[{phase:'pre',name:'CCTV 위치 선정',done:false},{phase:'doing',name:'카메라 설치',done:false},{phase:'doing',name:'DVR/NVR 연결',done:false},{phase:'hand',name:'영상 확인',done:false}],'출입통제':[{phase:'pre',name:'출입문 규격 확인',done:false},{phase:'doing',name:'도어락 설치',done:false},{phase:'hand',name:'카드/지문 등록',done:false}],'기타':[{phase:'pre',name:'기타 항목 확인',done:false},{phase:'doing',name:'기타 시공',done:false},{phase:'hand',name:'기타 인수인계',done:false}]};let r={};(installs||[]).forEach(k=>{if(tpl[k])r[k]=tpl[k].map(i=>({...i}));});return r;}
+
+function renderSites(){
+  const srch=(document.getElementById('site-search').value||'').toLowerCase(),instF=document.getElementById('site-f-install').value;
+  const active=sites.filter(s=>{if(s.done)return false;if(srch&&!s.project.toLowerCase().includes(srch)&&!s.client.toLowerCase().includes(srch))return false;if(instF&&!(s.installs||[]).includes(instF))return false;return true;});
+  const grid=document.getElementById('site-grid');
+  grid.innerHTML=active.map(s=>{
+    const prog=getSiteProgress(s),dd=getDdayInfo(s.deadline);
+    const ddHtml=dd?`<span class="badge ${dd.cls}">D-${dd.diff}</span>`:'';
+    const instHtml=(s.installs||[]).map(i=>`<span class="pill tag-blue">${i}</span>`).join(' ');
+    return`<div class="site-card ${dd&&dd.diff<=7?'urgent':dd&&dd.diff<=14?'warn-card':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
+        <div class="site-name">${s.project}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${ddHtml}<span class="badge tag-gray">공정 ${prog}%</span></div>
+      </div>
+      <div class="site-client">${s.client}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${instHtml}</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px">담당: ${(s.contacts||[]).map(c=>c.name||c).join(', ')||'—'} · 자재 ${(s.materials||[]).length}개</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" style="flex:1" onclick="openSiteDetail('${s.id}')">상세보기</button>
+        <button class="btn btn-sm" style="background:var(--danger-light);color:var(--danger);border:1px solid #ef9a9a" onclick="deleteSite('${s.id}')">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+  if(!active.length)grid.innerHTML='<div class="empty"><span class="ico">🏗</span>등록된 현장이 없습니다.</div>';
+}
+
+function renderDoneSites(){
+  const done=sites.filter(s=>s.done);
+  const grid=document.getElementById('done-grid'),empty=document.getElementById('done-empty');
+  if(!done.length){grid.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  grid.innerHTML=done.map(s=>{
+    const prog=getSiteProgress(s);
+    const instHtml=(s.installs||[]).map(i=>`<span class="pill tag-blue">${i}</span>`).join(' ');
+    return`<div class="site-card" onclick="openSiteDetail('${s.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px">
+        <div class="site-name">🏁 ${s.project}</div><span class="badge tag-ok">마감완료</span>
+      </div>
+      <div class="site-client">${s.client}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${instHtml}</div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:12px">마감일: ${s.deadline||'—'} · 공정 ${prog}%</div>
+      <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();restoreSite('${s.id}')">↩ 현장 목록으로 복구</button>
+    </div>`;
+  }).join('');
+}
+
+async function deleteSite(id){
+  const s=sites.find(x=>x.id==id);if(!s)return;
+  if(!confirm(`"${s.project}" 현장을 삭제하시겠습니까?\n(연결된 출고요청은 삭제되지 않습니다)`))return;
+  loading(true,'삭제 중...');
+  try{const res=await gasPost({action:'deleteSite',id});if(!res.ok){alert('실패: '+res.msg);return;}sites=sites.filter(x=>x.id!=id);refreshProjectDropdown();renderSites();renderDashboard();}finally{loading(false);}
+}
+async function restoreSite(id){
+  if(!confirm('이 현장을 현장 목록으로 복구하시겠습니까?'))return;
+  const s=sites.find(x=>x.id==id);if(!s)return;
+  loading(true,'복구 중...');
+  try{const res=await gasPost({action:'updateSite',id,done:false});if(!res.ok){alert('실패: '+res.msg);return;}s.done=false;refreshProjectDropdown();renderDoneSites();renderSites();renderDashboard();}finally{loading(false);}
+}
+
+async function openSiteDetail(id){
+  currentSiteId=id;const s=sites.find(x=>x.id==id);if(!s)return;
+  if(!s.wbs){
+    loading(true,'WBS 불러오는 중...');
+    try{const res=await gasGet({action:'getWbs',siteId:id});if(res.ok&&res.data.length){s.wbs={};res.data.forEach(r=>{const sec=r['섹션'];if(!s.wbs[sec])s.wbs[sec]=[];s.wbs[sec].push({id:r['ID'],phase:r['단계'],name:r['항목명'],done:r['완료여부']==='Y'});});}else{s.wbs=getWbsTemplate(s.installs);}}finally{loading(false);}
+  }
+  if(!s.installRows)s.installRows=[];
+  document.getElementById('sd-title').textContent=s.project;
+  const dd=getDdayInfo(s.deadline),ddEl=document.getElementById('sd-dday');
+  if(dd){ddEl.textContent=`D-${dd.diff}`;ddEl.className=dd.cls;ddEl.style.padding='4px 12px';}else{ddEl.textContent='';}
+  document.querySelectorAll('.site-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+  ['info','materials','wbs'].forEach(t=>document.getElementById('sd-'+t).style.display=t==='info'?'block':'none');
+  renderSiteInfo(s);
+  goPage('site-detail');
+}
+
+function siteTab(tab){
+  document.querySelectorAll('.site-tab').forEach((t,i)=>t.classList.toggle('active',['info','materials','wbs'][i]===tab));
+  ['info','materials','wbs'].forEach(t=>document.getElementById('sd-'+t).style.display=t===tab?'block':'none');
+  const s=sites.find(x=>x.id==currentSiteId);if(!s)return;
+  if(tab==='info')renderSiteInfo(s);
+  if(tab==='materials')renderSiteMaterials(s);
+  if(tab==='wbs')renderWbs(s);
+}
+
+function renderSiteInfo(s){
+  const installItems=['난방','조명','스위치','차양','네트워크','CCTV','출입통제','기타'];
+  const installCheckboxes=installItems.map(item=>`
+    <label class="checkbox-item">
+      <input type="checkbox" value="${item}" ${(s.installs||[]).includes(item)?'checked':''}
+        onchange="updateSiteInstall('${s.id}',this)"> ${item}
+    </label>`).join('');
+  const contactsHtml=(s.contacts||[]).map((c,i)=>`
+    <div class="form-row col2" style="margin-bottom:10px">
+      <div class="form-group"><label>담당자명</label>
+        <input type="text" value="${c.name||''}" onblur="updateSiteContact('${s.id}',${i},'name',this.value)">
+      </div>
+      <div class="form-group"><label>연락처</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" value="${c.tel||''}" onblur="updateSiteContact('${s.id}',${i},'tel',this.value)" style="flex:1">
+          <button class="icon-btn" style="color:var(--danger)" onclick="removeSiteContact('${s.id}',${i})">✕</button>
+        </div>
+      </div>
+    </div>`).join('')||'<p style="color:var(--text-sub);font-size:13px;margin-bottom:10px">등록된 담당자가 없습니다.</p>';
+  document.getElementById('sd-info').innerHTML=`
+    <div class="form-section"><h3>기본 정보</h3>
+      <div class="form-row col2">
+        <div class="form-group"><label>고객사</label><input type="text" value="${s.client||''}" onblur="siteUpdate('${s.id}','client',this.value)"></div>
+        <div class="form-group"><label>현장 주소</label><input type="text" value="${s.addr||''}" onblur="siteUpdate('${s.id}','addr',this.value)"></div>
+      </div>
+      <div class="form-row col2">
+        <div class="form-group"><label>프로젝트명</label><input type="text" value="${s.project||''}" onblur="siteUpdate('${s.id}','project',this.value)"></div>
+        <div class="form-group"><label>마감 일정</label><input type="date" value="${s.deadline||''}" onchange="siteUpdate('${s.id}','deadline',this.value);renderSites();updateDdayLabel('${s.id}')"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>설치 내역 <span style="font-size:11px;color:var(--primary);font-weight:400">(체크로 편집)</span></label>
+          <div class="checkbox-grid" style="margin-top:10px">${installCheckboxes}</div>
+        </div>
+      </div>
+      <div class="form-row"><div class="form-group"><label>비고</label>
+        <textarea onblur="siteUpdate('${s.id}','note',this.value)">${s.note||''}</textarea>
+      </div></div>
+    </div>
+    <div class="form-section"><h3>담당자 정보 <span style="font-size:11px;color:var(--primary);font-weight:400">(편집 가능)</span></h3>
+      <div id="contacts-wrap-${s.id}">${contactsHtml}</div>
+      <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="addSiteContact('${s.id}')">+ 담당자 추가</button>
+    </div>`;
+}
+
+async function siteUpdate(id,key,val){
+  const s=sites.find(x=>x.id==id);if(!s)return;
+  s[key]=val;
+  await gasPost({action:'updateSite',id,client:s.client,addr:s.addr,project:s.project,deadline:s.deadline,note:s.note});
+}
+async function updateSiteInstall(id,checkbox){
+  const s=sites.find(x=>x.id==id);if(!s)return;
+  const val=checkbox.value;
+  if(checkbox.checked){if(!(s.installs||[]).includes(val))s.installs.push(val);}
+  else{s.installs=(s.installs||[]).filter(i=>i!==val);}
+  await gasPost({action:'updateSite',id,installs:s.installs});
+  renderSites();
+}
+async function updateSiteContact(id,idx,key,val){
+  const s=sites.find(x=>x.id==id);if(!s||!s.contacts[idx])return;
+  s.contacts[idx][key]=val;
+  await gasPost({action:'updateSite',id,contacts:s.contacts});
+}
+async function removeSiteContact(id,idx){
+  const s=sites.find(x=>x.id==id);if(!s)return;
+  if(!confirm('담당자를 삭제하시겠습니까?'))return;
+  s.contacts.splice(idx,1);
+  await gasPost({action:'updateSite',id,contacts:s.contacts});
+  renderSiteInfo(s);
+}
+async function addSiteContact(id){
+  const s=sites.find(x=>x.id==id);if(!s)return;
+  if(!s.contacts)s.contacts=[];
+  s.contacts.push({name:'',tel:''});
+  await gasPost({action:'updateSite',id,contacts:s.contacts});
+  renderSiteInfo(s);
+}
+function updateDdayLabel(id){const s=sites.find(x=>x.id==id),el=document.getElementById('sd-dday');const dd=getDdayInfo(s&&s.deadline);if(el&&dd){el.textContent=`D-${dd.diff}`;el.className=dd.cls;}}
+
+function renderSiteMaterials(s){
+  const rows=(s.materials||[]).map((m,i)=>{const sc=m.status==='납품완료'?'tag-ok':m.status==='출고요청등록'?'tag-warn':'tag-danger';return`<tr><td><span class="pill tag-blue">${m.cat}</span></td><td>${m.item}</td><td>${m.qty}</td><td><span class="badge ${sc}">${m.status||'미발주'}</span></td><td>${(!m.status||m.status==='미발주')?`<button class="btn btn-primary btn-sm" onclick="requestMaterial('${s.id}',${i})">출고 요청 등록</button>`:`<span style="font-size:12px;color:var(--text-sub)">등록됨</span>`}</td><td><button class="icon-btn" onclick="deleteMaterial('${s.id}',${i})">✕</button></td></tr>`;}).join('');
+  document.getElementById('sd-materials').innerHTML=`<div class="form-section"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="margin:0">필요 자재 목록</h3><button class="btn btn-primary btn-sm" onclick="openMatModal('${s.id}')">+ 자재 추가</button></div>${rows?`<div class="table-wrap"><table><thead><tr><th>카테고리</th><th>품목</th><th>수량</th><th>발주/출고 상태</th><th>출고 요청</th><th>삭제</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty"><span class="ico">📦</span>등록된 자재가 없습니다.</div>'}</div>`;
+}
+function openMatModal(siteId){currentSiteId=siteId;updateCatSelects();document.getElementById('mat-qty').value='';openModal('modal-mat');}
+function onMatCatChange(){const cat=document.getElementById('mat-cat').value;document.getElementById('mat-item').innerHTML='<option value="">-- 선택 --</option>'+inventory.filter(i=>i.cat===cat).map(i=>`<option value="${i.name}">${i.name}</option>`).join('');}
+async function addMaterial(){
+  const s=sites.find(x=>x.id==currentSiteId);if(!s)return;
+  const cat=document.getElementById('mat-cat').value,item=document.getElementById('mat-item').value,qty=parseInt(document.getElementById('mat-qty').value)||0;
+  if(!cat||!item||qty<=0){alert('카테고리, 품목, 수량을 모두 입력하세요');return;}
+  if(!s.materials)s.materials=[];s.materials.push({cat,item,qty,status:'미발주',reqId:null});
+  await gasPost({action:'updateSite',id:s.id,materials:s.materials});
+  closeModal('modal-mat');renderSiteMaterials(s);
+}
+async function deleteMaterial(siteId,idx){
+  const s=sites.find(x=>x.id==siteId);if(!s)return;const m=s.materials[idx];
+  const linked=m.reqId?requests.find(r=>r.id==m.reqId):null;
+  if(!confirm('이 자재를 삭제하시겠습니까?'+(linked?' 연결된 출고 요청도 함께 삭제됩니다.':'')))return;
+  loading(true,'삭제 중...');
+  try{if(linked){await gasPost({action:'deleteRequest',id:linked.id});requests=requests.filter(r=>r.id!=m.reqId);}s.materials.splice(idx,1);await gasPost({action:'updateSite',id:s.id,materials:s.materials});renderSiteMaterials(s);renderRequests();renderDashboard();}finally{loading(false);}
+}
+async function requestMaterial(siteId,idx){
+  const s=sites.find(x=>x.id==siteId);if(!s)return;const m=s.materials[idx];if(!m)return;
+  const item=inventory.find(i=>i.name===m.item);const stock=item?item.qty:0;
+  loading(true,'등록 중...');
+  try{const res=await gasPost({action:'addRequest',date:todayStr(),client:s.client,project:s.project,cat:m.cat,item:m.item,reqQty:m.qty,stockAtReq:stock,orderNeeded:Math.max(0,m.qty-stock),memo:'',registrar:currentUser.name});if(!res.ok){alert('실패: '+res.msg);return;}requests.push({id:res.id,date:todayStr(),client:s.client,project:s.project,cat:m.cat,item:m.item,reqQty:m.qty,stockAtReq:stock,prepared:0,orderNeeded:Math.max(0,m.qty-stock),delivered:0,reqDate:'',confirmDate:'',status:'미출고',progress:'대기중',memo:'',sn:'',registrar:currentUser.name,modifier:'',certified:false});m.status='출고요청등록';m.reqId=res.id;await gasPost({action:'updateSite',id:s.id,materials:s.materials});alert('출고 요청이 등록되었습니다.');renderSiteMaterials(s);renderRequests();renderDashboard();}finally{loading(false);}
+}
+function addContact(){const wrap=document.getElementById('sa-contacts-wrap');const div=document.createElement('div');div.className='form-row col2';div.style.marginBottom='10px';div.innerHTML=`<div class="form-group"><label>담당자명</label><input type="text" placeholder="홍길동"></div><div class="form-group"><label>연락처</label><input type="text" placeholder="010-0000-0000"></div>`;wrap.appendChild(div);}
+async function submitSite(){
+  const client=document.getElementById('sa-client').value.trim(),addr=document.getElementById('sa-addr').value.trim(),pname=document.getElementById('sa-pname').value.trim(),deadline=document.getElementById('sa-deadline').value;
+  if(!client||!pname){alert('고객사와 프로젝트명을 입력하세요');return;}
+  const installs=[...document.querySelectorAll('input[name=install]:checked')].map(c=>c.value);
+  const contacts=[];document.querySelectorAll('#sa-contacts-wrap .form-row').forEach(row=>{const ins=row.querySelectorAll('input');if(ins[0]&&ins[0].value.trim())contacts.push({name:ins[0].value.trim(),tel:ins[1]?ins[1].value.trim():''});});
+  const wbs=getWbsTemplate(installs);loading(true,'등록 중...');
+  try{const res=await gasPost({action:'addSite',client,addr,project:pname,deadline,installs,contacts,note:document.getElementById('sa-note').value,materials:[],installRows:[],wbs});if(!res.ok){alert('실패: '+res.msg);return;}sites.push({id:res.id,client,addr,project:pname,contacts,installs,deadline,note:document.getElementById('sa-note').value,materials:[],installRows:[],wbs,done:false});alert('현장이 등록되었습니다.');['sa-client','sa-addr','sa-pname','sa-deadline','sa-note'].forEach(id=>document.getElementById(id).value='');document.querySelectorAll('input[name=install]').forEach(c=>c.checked=false);document.getElementById('sa-contacts-wrap').innerHTML=`<div class="form-row col2" style="margin-bottom:10px"><div class="form-group"><label>담당자명</label><input type="text" placeholder="홍길동"></div><div class="form-group"><label>연락처</label><input type="text" placeholder="010-0000-0000"></div></div>`;refreshProjectDropdown();goPage('site-list');renderSites();renderDashboard();}finally{loading(false);}
+}
+
+// WBS
+const phaseLabel={pre:'시공전 감리',doing:'시공중 내역',hand:'고객 인수인계'};
+const phaseClass={pre:'phase-pre',doing:'phase-doing',hand:'phase-hand'};
+function renderWbs(s){
+  if(!s.wbs)s.wbs=getWbsTemplate(s.installs);if(!s.installRows)s.installRows=[];
+  const totalAll=Object.values(s.wbs).flat().length,doneAll=Object.values(s.wbs).flat().filter(i=>i.done).length;
+  const totalPct=totalAll?Math.round(doneAll/totalAll*100):0;
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px"><h3 style="margin:0;font-size:18px;font-weight:700">WBS 시공 관리</h3><div style="display:flex;gap:8px"><button class="btn btn-outline btn-sm" onclick="addInstallRow('${s.id}')">+ 설치 항목 추가</button><button class="btn btn-outline btn-sm" onclick="openWbsAddModal('${s.id}')">+ 체크리스트 추가</button></div></div>
+  <div style="background:#fff;border-radius:10px;border:1px solid var(--border);padding:18px 22px;margin-bottom:18px"><div style="font-size:14px;font-weight:600;margin-bottom:10px">전체 진행률</div><div style="display:flex;align-items:center;gap:14px"><div class="wbs-progress" style="flex:1;height:12px"><div class="wbs-progress-bar" style="width:${totalPct}%"></div></div><span style="font-size:20px;font-weight:700;color:var(--primary)">${totalPct}%</span></div></div>
+  <div style="background:#fff;border-radius:10px;border:1px solid var(--border);margin-bottom:18px;overflow:hidden"><div style="padding:14px 20px;background:#f0f4ff;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:700;color:var(--primary)">📋 설치 현황</span><span style="font-size:12px;color:var(--text-sub)">설치 완료 항목을 체크하세요</span></div>
+  <table class="wbs-install-table"><thead><tr><th style="width:50px;text-align:center">완료</th><th>설치 위치</th><th>카테고리</th><th>품목</th><th>내용 / 특이사항</th><th style="width:60px">삭제</th></tr></thead><tbody id="install-rows-${s.id}">`;
+  s.installRows.forEach((row,idx)=>{
+    const catOpts=categories.map(c=>`<option value="${c}" ${c===row.cat?'selected':''}>${c}</option>`).join('');
+    const itemOpts=inventory.filter(i=>i.cat===row.cat).map(i=>`<option value="${i.name}" ${i.name===row.item?'selected':''}>${i.name}</option>`).join('');
+    html+=`<tr class="${row.done?'install-done':''}">
+      <td style="text-align:center"><input type="checkbox" ${row.done?'checked':''} style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer" onchange="toggleInstallRow('${s.id}',${idx},this.checked)"></td>
+      <td><input type="text" value="${row.location||''}" placeholder="예: 거실, 안방 1" oninput="updateInstallRow('${s.id}',${idx},'location',this.value)" onblur="saveInstallRows('${s.id}')"></td>
+      <td><select onchange="updateInstallRowCat('${s.id}',${idx},this.value)""><option value="">선택</option>${catOpts}</select></td>
+      <td><select id="irow-item-${s.id}-${idx}" onchange="updateInstallRow('${s.id}',${idx},'item',this.value);saveInstallRows('${s.id}')"><option value="">선택</option>${itemOpts}</select></td>
+      <td><input type="text" value="${row.note||''}" placeholder="내용 또는 특이사항" oninput="updateInstallRow('${s.id}',${idx},'note',this.value)" onblur="saveInstallRows('${s.id}')"></td>
+      <td style="text-align:center"><button class="icon-btn" onclick="deleteInstallRow('${s.id}',${idx})">✕</button></td>
+    </tr>`;});
+  if(!s.installRows.length)html+=`<tr><td colspan="6" style="text-align:center;color:var(--text-sub);padding:24px;font-size:13px">설치 항목 추가 버튼으로 항목을 등록하세요</td></tr>`;
+  html+=`</tbody></table></div><div style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text)">✅ 시공 체크리스트</div>`;
+  Object.keys(s.wbs).forEach(sec=>{const items=s.wbs[sec],done=items.filter(i=>i.done).length,pct=items.length?Math.round(done/items.length*100):0;html+=`<div class="wbs-section"><div class="wbs-section-header"><h4>${sec}</h4><div class="wbs-progress"><div class="wbs-progress-bar" style="width:${pct}%"></div></div><span style="font-size:13px;font-weight:700;white-space:nowrap">${done}/${items.length} (${pct}%)</span></div>`;items.forEach((item,idx)=>{const cid=`wbs_${s.id}_${sec}_${idx}`;html+=`<div class="wbs-item"><input type="checkbox" id="${cid}" ${item.done?'checked':''} onchange="toggleWbs('${s.id}','${sec}',${idx},this.checked)"><label for="${cid}" class="${item.done?'checked':''}">${item.name}</label><span class="phase ${phaseClass[item.phase]}">${phaseLabel[item.phase]}</span><button class="icon-btn" onclick="deleteWbsItem('${s.id}','${sec}',${idx})" style="margin-left:6px">✕</button></div>`;});html+=`</div>`;});
+  document.getElementById('sd-wbs').innerHTML=html;
+}
+function addInstallRow(siteId){const s=sites.find(x=>x.id==siteId);if(!s)return;if(!s.installRows)s.installRows=[];s.installRows.push({location:'',cat:'',item:'',note:'',done:false});renderWbs(s);}
+function updateInstallRow(siteId,idx,key,val){const s=sites.find(x=>x.id==siteId);if(s&&s.installRows[idx])s.installRows[idx][key]=val;}
+async function saveInstallRows(siteId){
+  const s=sites.find(x=>x.id==siteId);if(!s)return;
+  await gasPost({action:'updateSite',id:siteId,installRows:s.installRows});
+}
+function updateInstallRowCat(siteId,idx,cat){const s=sites.find(x=>x.id==siteId);if(!s||!s.installRows[idx])return;s.installRows[idx].cat=cat;s.installRows[idx].item='';const el=document.getElementById(`irow-item-${siteId}-${idx}`);if(el)el.innerHTML='<option value="">선택</option>'+inventory.filter(i=>i.cat===cat).map(i=>`<option value="${i.name}">${i.name}</option>`).join('');}
+function toggleInstallRow(siteId,idx,val){const s=sites.find(x=>x.id==siteId);if(!s||!s.installRows[idx])return;s.installRows[idx].done=val;const row=document.querySelector(`#install-rows-${siteId} tr:nth-child(${idx+1})`);if(row)row.className=val?'install-done':'';gasPost({action:'updateSite',id:s.id,installRows:s.installRows});}
+async function deleteInstallRow(siteId,idx){const s=sites.find(x=>x.id==siteId);if(!s)return;if(!confirm('이 설치 항목을 삭제하시겠습니까?'))return;s.installRows.splice(idx,1);await gasPost({action:'updateSite',id:s.id,installRows:s.installRows});renderWbs(s);}
+async function toggleWbs(siteId,sec,idx,val){
+  const s=sites.find(x=>x.id==siteId);if(!s)return;s.wbs[sec][idx].done=val;
+  const items=Object.keys(s.wbs).flatMap(sec=>s.wbs[sec].map(i=>({...i,sec})));
+  await gasPost({action:'saveWbs',siteId,items});
+  renderWbs(s);updateDdayLabel(siteId);renderDashboard();
+  if(getSiteProgress(s)===100){setTimeout(async()=>{if(confirm('🎉 모든 체크리스트가 완료되었습니다!\n마감 현장으로 이동하시겠습니까?')){s.done=true;await gasPost({action:'updateSite',id:s.id,done:true});refreshProjectDropdown();goPage('site-done');renderDoneSites();renderSites();renderDashboard();}},100);}
+}
+async function deleteWbsItem(siteId,sec,idx){const s=sites.find(x=>x.id==siteId);if(!s)return;if(!confirm('이 항목을 삭제하시겠습니까?'))return;s.wbs[sec].splice(idx,1);const items=Object.keys(s.wbs).flatMap(sec=>s.wbs[sec].map(i=>({...i,sec})));await gasPost({action:'saveWbs',siteId,items});renderWbs(s);renderDashboard();}
+function openWbsAddModal(siteId){const s=sites.find(x=>x.id==siteId);if(!s)return;document.getElementById('wbs-add-section').innerHTML=Object.keys(s.wbs).map(k=>`<option value="${k}">${k}</option>`).join('');document.getElementById('wbs-add-name').value='';openModal('modal-wbs-add');}
+async function submitWbsAdd(){const s=sites.find(x=>x.id==currentSiteId);if(!s)return;const sec=document.getElementById('wbs-add-section').value,phase=document.getElementById('wbs-add-phase').value,name=document.getElementById('wbs-add-name').value.trim();if(!name){alert('항목명을 입력하세요');return;}if(!s.wbs[sec])s.wbs[sec]=[];s.wbs[sec].push({phase,name,done:false});const items=Object.keys(s.wbs).flatMap(sec=>s.wbs[sec].map(i=>({...i,sec})));await gasPost({action:'saveWbs',siteId:currentSiteId,items});closeModal('modal-wbs-add');renderWbs(s);}
+
+// CALENDAR
+function renderCalendar(){
+  document.getElementById('cal-title').textContent=`${calYear}년 ${calMonth+1}월`;
+  const days=['일','월','화','수','목','금','토'];
+  let html=days.map((d,i)=>`<div class="cal-day-name" style="${i===0?'color:var(--danger)':i===6?'color:var(--primary)':''}">${d}</div>`).join('');
+  const first=new Date(calYear,calMonth,1).getDay(),daysInMonth=new Date(calYear,calMonth+1,0).getDate(),today=new Date();
+  for(let i=0;i<first;i++)html+=`<div class="cal-cell other-month"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const isToday=today.getFullYear()===calYear&&today.getMonth()===calMonth&&today.getDate()===d;
+    const dateStr=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    let evts=sites.filter(s=>s.deadline===dateStr).map(s=>`<div class="cal-event" style="background:var(--danger-light);color:var(--danger)">마감: ${s.project}</div>`);
+    calEvents.filter(e=>e.date===dateStr).forEach(e=>evts.push(`<div class="cal-event">${e.txt}</div>`));
+    const dow=(first+d-1)%7;
+    html+=`<div class="cal-cell${isToday?' today':''}"><div class="cal-num${dow===0?' sunday':dow===6?' saturday':''}">${d}</div>${evts.join('')}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+}
+function calMove(d){calMonth+=d;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function addCalEvent(){const date=document.getElementById('cal-new-date').value,txt=document.getElementById('cal-new-txt').value.trim();if(!date||!txt){alert('날짜와 내용을 입력하세요');return;}calEvents.push({date,txt});closeModal('modal-cal-add');renderCalendar();}
+
+// MODAL / HELP
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)this.classList.remove('open');}));
+function helpTab(btn,id){document.querySelectorAll('#page-help .btn').forEach(b=>b.className='btn btn-gray btn-sm');btn.className='btn btn-primary btn-sm';['h-dash','h-inv','h-site','h-wbs','h-cal'].forEach(t=>document.getElementById(t).style.display=t===id?'block':'none');}
+</script>
+</body>
+</html>
